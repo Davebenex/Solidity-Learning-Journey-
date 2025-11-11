@@ -1,14 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-contract SimpleStorage {
-    uint256 public favoriteNumber;
+contract TransactionsApproved {
+    uint256[] public listOfApprovedTransactions;
 
-    function store(uint256 _favoriteNumber) public {
-        favoriteNumber = _favoriteNumber;
+    function addTnx(uint256 _tnxNo) public {
+        listOfApprovedTransactions.push(_tnxNo);
     }
 
-    function retrieve() public view returns (uint256) {
-        return favoriteNumber;
+    function removeLastTnx() public {
+        listOfApprovedTransactions.pop();
+    }
+
+    function deleteTnx(uint256 _tnxIndex) public {
+        delete listOfApprovedTransactions[_tnxIndex];
+    }
+
+    function viewList() public view returns (uint256[] memory) {
+        return listOfApprovedTransactions;
     }
 }
