@@ -8,23 +8,25 @@ pragma solidity ^0.8.18;
 
 contract FundMe {
 AggregatorV3Interface public pricefeed;
-
+address[] public Senders;
+mapping (address Senders  => uint amountFunded) public addressToAmount;
 constructor(){
     pricefeed = AggregatorV3Interface(0x694AA1769357215DE4FAC081bf1f309aDC325306);
 }
 
-uint256 public minimumUsd = 5 * 1e18;
+uint256 public minimumUsd = 5e18;
 
 function fund() public payable {
     require(
         getLatestPrice(msg.value) >= minimumUsd,
         "Didn't send enough ETH"
     );
+    Senders.push(msg.sender);
+    addressToAmount[msg.sender] = addressToAmount[msg.sender] + msg.value;
 }
 
 
 //function to confirm curent prince of token from chainlink
-
 function GetPrice() public view returns(uint256) {
 //Address; 0x694AA1769357215DE4FAC081bf1f309aDC325306
 //ABI; 
