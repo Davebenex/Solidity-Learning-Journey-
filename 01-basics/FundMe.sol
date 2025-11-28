@@ -4,50 +4,56 @@
 
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
-    import{AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
+import {PriceConverter} from "./PriceConverter1.sol";
 contract FundMe {
-AggregatorV3Interface public pricefeed;
+using PriceConverter for uint256;
+
 address[] public Senders;
 mapping (address Senders  => uint amountFunded) public addressToAmount;
-constructor(){
-    pricefeed = AggregatorV3Interface(0x694AA1769357215DE4FAC081bf1f309aDC325306);
-}
 
 uint256 public minimumUsd = 5e18;
 
+address public owner;
+constructor() {
+    owner = msg.sender;
+}
+
 function fund() public payable {
-    require(
-        getLatestPrice(msg.value) >= minimumUsd,
-        "Didn't send enough ETH"
+    require( msg.value.getLatestPrice() >= minimumUsd,
+       "Didn't send enough ETH"
     );
     Senders.push(msg.sender);
-    addressToAmount[msg.sender] = addressToAmount[msg.sender] + msg.value;
+    addressToAmount[msg.sender] += msg.value;
 }
 
+function withdraw() public OnlyOwner{
+    require(msg.sender == owner, "Aint yours");
 
-//function to confirm curent prince of token from chainlink
-function GetPrice() public view returns(uint256) {
-//Address; 0x694AA1769357215DE4FAC081bf1f309aDC325306
-//ABI; 
-pricefeed.latestRoundData();
-//this returns 5 values
-//(uint80 roundId,
- //int256 answer,
- //uint256 startedAt,
- //uint256 updatedAt,
- //uint80 answeredInRound)....but we only need the price value stored as var "answer" 
- //lets write in a way that tellssoliit to only provide that one 
-(, int256 answer, , , ) = pricefeed.latestRoundData();//take the second value only and lets rename her price
-return uint(answer) * 1e10;  //Typecast → Multiply → Return
+    for (uint256 sendersIndex = 0; sendersIndex < Senders.length; sendersIndex++)
+    {
+       address withrawFrom = Senders[sendersIndex];
+
+       addressToAmount[withrawFrom] = 0;
+    }
+    Senders = new address[] (0);
+
+    //transfer //send //call
+
+    //tranfer error reverts tansaction 
+    payable(msg.sender).transfer(address(this).balance);//msg.sender = address //payable(msg.sender) = payable type/ 2300 max
+    //send; no error returns bool 
+   bool sendSuccess = payable(msg.sender).send(address(this).balance); //2300 max gas
+   require(sendSuccess, "Send Failed");
+   //call, low level, allows us o call any function onchain
+   (bool callSuccess, ) =  payable(msg.sender).call{value: address(this).balance}("");//forward all gas or set gas, returns bool
+   require (callSuccess, "call failled");
+
 }
-
-//soldty math
-function getLatestPrice(uint256 _ethAmount) public view returns(uint256){
-uint256 ethprice = GetPrice();
-
-return (ethprice * _ethAmount)/1e18;//always multiply before you divide in solidity
-//TO IMPLIMENT LATER 
-}
-
+// lets create a modifier a modifier lets us add functionlity to pre-existing fundtions from out-side of the funstion
+    modifier OnlyOwner() {
+    require(msg.sender == owner, "Sender is not owner");
+    _; //oreder of this line is very importan to sequence of execution
+    }
+    //notice we do not set viibility for modifiersunlike functions
 }
