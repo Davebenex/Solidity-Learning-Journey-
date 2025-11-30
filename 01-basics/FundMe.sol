@@ -1,59 +1,94 @@
+// Get funds from users
+// Withdraw funds
+// Set a minimum funding value in USD
+
 // SPDX-License-Identifier: MIT
+
 pragma solidity ^0.8.18;
 
 import {PriceConverter} from "./PriceConverter1.sol";
 
-error NotOwner();
+error Notowner();
 
-/**
- * @title FundMe
- * @notice Simple funding contract with USD-based minimum using a price feed.
- */
 contract FundMe {
+
+    // Use the PriceConverter library for uint256
     using PriceConverter for uint256;
 
-    address[] public senders;
-    mapping(address => uint256) public addressToAmountFunded;
+    address[] public Senders;
 
-    uint256 public constant MINIMUM_USD = 5e18;
+    // Tracks how much each address has funded
+    mapping(address => uint256) public addressToAmount;
+
+    // Minimum amount required to fund, denominated in USD (with 18 decimals)
+    uint256 public constant MINIMUM_uSD = 5e18;
+
+    // Immutable owner address set at deployment
     address public immutable i_owner;
 
     constructor() {
         i_owner = msg.sender;
     }
 
-    /**
-     * @notice Fund the contract, enforcing a minimum in USD.
-     */
-    function fund() external payable {
+    // Allows users to fund the contract if the minimum USD value is met
+    function fund() public payable {
         require(
-            msg.value.getLatestPrice() >= MINIMUM_USD,
+            msg.value.getLatestPrice() >= MINIMUM_uSD,
             "Didn't send enough ETH"
         );
-
-        senders.push(msg.sender);
-        addressToAmountFunded[msg.sender] += msg.value;
+        Senders.push(msg.sender);
+        addressToAmount[msg.sender] += msg.value;
     }
 
-    /**
-     * @notice Withdraw all funds to the owner.
-     */
-    function withdraw() external onlyOwner {
-        // reset funded amounts
-        for (uint256 i = 0; i < senders.length; i++) {
-            address sender = senders[i];
-            addressToAmountFunded[sender] = 0;
+    // Withdraws all funds; can only be called by the owner
+    function withdraw() public OnlyOwner {
+        require(msg.sender == i_owner, "Aint yours");
+
+        // Reset each sender's funded balance
+        for (uint256 sendersIndex = 0; sendersIndex < Senders.length; sendersIndex++) {
+            address withdrawFrom = Senders[sendersIndex];
+            addressToAmount[withdrawFrom] = 0;
         }
-        delete senders;
 
-        // use call to send ETH
-        (bool success, ) = i_owner.call{value: address(this).balance}("");
-        require(success, "Withdraw failed");
+        // Reset the senders array
+        Senders = new address[] (0);
+
+        // Three ways to send ETH: transfer, send, call
+
+        // transfer: reverts on failure, forwards 2300 gas
+        payable(msg.sender).transfer(address(this).balance);
+
+        // send: returns a boolean instead of reverting, forwards 2300 gas
+        bool sendSuccess = payable(msg.sender).send(address(this).balance);
+        require(sendSuccess, "Send failed");
+
+        // call: low-level function, forwards all available gas by default
+        // returns a boolean and optional returned data
+        (bool callSuccess, ) = payable(msg.sender).call{
+            value: address(this).balance
+        }("");
+        require(callSuccess, "Call failed");
     }
 
-    // modifiers
-    modifier onlyOwner() {
-        if (msg.sender != i_owner) revert NotOwner();
-        _;
+    // Modifier that restricts function access to the owner
+    // Modifiers allow reusable logic to be applied to functions
+    modifier OnlyOwner() {
+        if (msg.sender != i_owner) {
+            revert Notowner();
+        }
+        _; // Execution continues after the modifier check
     }
+
+    // Called when ETH is sent with no data
+    receive() external payable {
+        fund();
+    }
+
+    // Called when calldata does not match any function
+    // or when receive() is not defined
+    fallback() external payable {
+        fund();
+    }
+
+    // Note: Modifiers do not have visibility keywords like functions
 }
