@@ -1,0 +1,92 @@
+# Foundry 101
+
+## 12/02/2025
+
+### Few private key safety guidelines
+
+- 1. I promise to never use my private key associated with real money in plane text.
+- store production keys offline
+- Never take photos of secret keys and/or seed phrases
+
+### To deploy a contract use
+
+forge  create contractname —rpc-url theurl —interactive
+
+- its not wise to write out the private key along with the create command, even if it’s more seamless
+- We can get the rpc url for any chain from Alchemy
+
+### Scripting with solidity
+
+- What it is: Write deployment logic in Solidity and run on Foundry's fast EVM backend with dry‑run simulation. Preferable to `forge create` for multi‑step, declarative deploys.[[1]](https://getfoundry.sh/guides/scripting-with-solidity#vocs-content)[[2]](https://getfoundry.sh/forge/reference/create)
+- How `forge script` runs (4 phases):
+    1. Local simulation collects transactions triggered during `vm.broadcast` or `vm.startBroadcast` calls.
+    2. On‑chain simulation (if RPC/fork URL provided) replays those txns.
+    3. Broadcasting with `--broadcast` sends the collected txns if sims succeeded.
+    4. Verification with `--verify` attempts Etherscan verification if API key present. Use `--resume` to retry timed‑out txns. Results may differ from sim due to MEV/front‑running.[[1]](https://getfoundry.sh/guides/scripting-with-solidity#vocs-content)
+- Project setup: `forge init Counter` then `forge build`.
+- Prereqs for Sepolia: RPC URL (Chainlist/Alchemy/Infura), one‑time deployer key `cast wallet new`, fund with faucet ETH, Etherscan API key.[[3]](https://chainlist.org/chain/11155111)[[4]](https://www.alchemy.com/)[[5]](https://www.infura.io/)[[6]](https://sepolia-faucet.pk910.de/)[[7]](https://sepoliafaucet.com/)[[8]](https://faucet.quicknode.com/ethereum/sepolia)[[9]](https://faucet.chainstack.com/)[[10]](https://docs.etherscan.io/getting-started/viewing-api-usage-statistics)
+- Env and config: Add `.env` values `SEPOLIA_RPC_URL` and `ETHERSCAN_API_KEY`. In `foundry.toml` add:
+    
+    [rpc_endpoints] sepolia = "${SEPOLIA_RPC_URL}"
+    
+    [etherscan] sepolia = { key = "${ETHERSCAN_API_KEY}" }.[[11]](https://getfoundry.sh/reference/cheatcodes/rpc)
+    
+- Writing the script: `CounterScript` inherits `Script`; in `run()` call `vm.startBroadcast()`, deploy `new Counter()`, then `vm.stopBroadcast()`. Consider the Config contract pattern for complex, multi‑chain orchestration.[[12]](https://getfoundry.sh/guides/scripting-with-config)
+- Deploy and verify to Sepolia:
+    - `source .env`
+    - `forge script --chain sepolia script/Counter.s.sol:CounterScript --rpc-url $SEPOLIA_RPC_URL --broadcast --verify -vvvv --interactives 1`
+    - Enter private key when prompted; prefer hardware wallet or protected keystore for anything beyond local/test.[[13]](https://getfoundry.sh/guides/best-practices/key-management)
+- Outputs: Forge prints traces, tx hashes, contract address, and verification status; artifacts saved under `broadcast/.../run-latest.json`.
+- Local testing with Anvil: run `anvil`, then `forge script script/Counter.s.sol:CounterScript --fork-url http://localhost:8545 --broadcast --interactives 1` and use a listed private key. Artifacts saved under the 31337 folder.
+- Tip: Avoid embedding secrets in commands; load from env. Use interactive prompts or external wallets for production.
+- TLDR: forge script script/DeploySimpleStorage.s.sol --rpc-url [http://127.0.0.1:8545](http://127.0.0.1:8545/) --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+
+## 12/02/2025
+
+### Transactions
+
+- we can view the data sent(which constitutes a transaction) in the broadcast → dry-run
+- gas is in hex and can be converted to decimals on our terminal using “ cast --to-base <gas> dec” in bash
+- cast is used for conversion in bash to check more conversions “create —help”
+- nonce = tansction deployment counter (numbr only used once)
+
+### Private key safety
+
+never store private key in a dot env file 
+
+# **The Pledge**
+
+I solemnly swear, that I will never place a private key or secret phrase or mnemonic in a `.env` file that is associated with real funds.
+
+I will only place private keys in a `.env` file that have ONLY testnet ETH, LINK, or other cryptocurrencies.
+
+When I'm testing and developing, I will use a different wallet than the one associated with my real funds.
+
+I am aware that if I forget a `.gitignore` and push my key/phrase up to GitHub even for a split-second, or show my key/phrase to the internet for a split second, it should be considered compromised and I should move all my funds immediately.
+
+If I am unsure if my account has real funds in it, I will assume it has real funds in it. If I assume it has real funds in it, I will not use it for developing purposes.
+
+I am aware that even if I hit `add account` on my metamask (or other ETH wallet) I will get a new private key, but it will share the same secret phrase/mnemonic of the other accounts generated in that metamask (or other ETH wallet).
+
+# **Pledge Additions**
+
+For this course, I will only use funds associated with a brand new never-before-used metamask (or other ETH wallet). I am aware that my account associated with my private key is the same on testnets that it is on mainnets.
+
+If I must use a private key associated with real funds in the future, until I am 100% sure what I am doing I will always either:
+
+1. Use the encryption methods of [dapptools](https://github.com/dapphub/dapptools/blob/master/src/ethsign/README.md) keystore file
+2. *NEW* Use the [foundry's built-in keystore creator](https://updraft.cyfrin.io/courses/foundry/foundry-simple-storage/never-use-a-env-file?lesson_format=video)
+3. Use the command line way to pass private keys, and delete my command line history right after
+
+If I never actually deploy anything to mainnet myself or work with a private key with real funds, I do not need to be concerned.
+
+### Never use a .env file
+
+Instead of an .env file, encrypt your key using this bash command:
+
+- `cast wallet import <KEY_NAME> --interactive`
+- This opens a write-only prompt to enter the private key you want to encrypt and the password to protect it.
+- An address will be returned. As explained in the fundamentals, this address is generated from the public key, which is derived from the private key you just encrypted. It is deterministic from Anvil's default mnemonic.
+- After you get your address, you can deploy safely using:
+    - `forge script script/<SCRIPT_NAME> --rpc-url <RPC_URL> --account <KEY_NAME> --sender <ADDRESS> --broadcast -vvv`
+- BE SURE TO REMOVE THE PRIVATE KEY FROM YOUR SHELL HISTORY IF YOU TYPED IT.
